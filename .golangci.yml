@@ -1,0 +1,222 @@
+version: "2"
+
+run:
+  tests: true
+
+linters:
+  default: none
+  enable:
+    # Bugs & errors
+    - errcheck
+    - govet
+    - staticcheck
+    - ineffassign
+    - nilerr
+    - nilnil
+    - bodyclose
+    - durationcheck
+    - fatcontext
+    - spancheck
+    - exhaustive
+    - noctx
+    - forcetypeassert
+    - makezero
+    - recvcheck
+
+    # Code quality
+    - unused
+    - gocritic
+    - revive
+    - unconvert
+    - unparam
+    - copyloopvar
+    - usestdlibvars
+    - modernize
+    - exptostd
+    - intrange
+    - predeclared
+    - mirror
+
+    # Error handling
+    - errorlint
+    - errchkjson
+    - wrapcheck
+
+    # Security
+    - gosec
+
+    # Performance
+    - perfsprint
+
+    # Style & naming
+    - misspell
+    - dupword
+    - nolintlint
+    - errname
+    - nakedret
+    - canonicalheader
+
+    # Testing
+    - testifylint
+    - usetesting
+    - thelper
+    - paralleltest
+
+    # Structured logging
+    - sloglint
+
+    # Import governance
+    - depguard
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+      exclude-functions:
+        - io.Copy
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (net/http.ResponseWriter).Write
+
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment # too noisy for minor gains
+        - shadow # too noisy for common Go patterns like if val, err := ...; err == nil
+
+    staticcheck:
+      checks:
+        - all
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+      disabled-checks:
+        - commentFormatting
+        - captLocal
+        - underef
+        - exitAfterDefer # main.go explicitly calls cancel() before os.Exit
+        - hugeParam # too aggressive for structs passed by value
+        - rangeValCopy # often intentional for clarity
+
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: error-return
+        - name: error-strings
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: var-declaration
+
+    gosec:
+      excludes:
+        - G101 # hardcoded credentials (false positives on URL constants)
+        - G104 # unhandled errors (errcheck handles this)
+        - G115 # integer overflow int->int32 (false positives on limit params)
+
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+
+    depguard:
+      rules:
+        main:
+          deny:
+            - pkg: io/ioutil
+              desc: Deprecated since Go 1.16; use io and os packages
+            - pkg: github.com/pkg/errors
+              desc: Use fmt.Errorf with %w or errors.Join
+            - pkg: math/rand$
+              desc: Use math/rand/v2 or crypto/rand
+
+    perfsprint:
+      err-error: true
+      errorf: true
+      sprintf1: true
+
+    exhaustive:
+      default-signifies-exhaustive: true
+
+    errchkjson:
+      check-error-free-encoding: false
+      report-no-exported: false
+
+    nakedret:
+      max-func-lines: 10
+
+    wrapcheck:
+      ignore-package-globs:
+        - github.com/lgrote/sanity-validation/*
+        - github.com/lgrote/sanity-validation/*/*
+      extra-ignore-sigs:
+        - .Wait(
+        - .ListenAndServe(
+        - .Shutdown(
+      ignore-sig-regexps:
+        - \.Err\(\)
+        - \.Write\(p \[\]byte\)
+
+    testifylint:
+      enable-all: true
+
+  exclusions:
+    generated: lax
+    presets:
+      - std-error-handling
+      - common-false-positives
+    rules:
+      # Test files can have longer functions and more relaxed rules
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+          - errchkjson
+          - gocritic
+          - bodyclose
+          - perfsprint
+          - usestdlibvars
+          - noctx
+          - wrapcheck
+          - forcetypeassert
+          - nilnil
+
+      # unusedwrite in tests is noisy (struct fields set for test context)
+      - path: _test\.go
+        linters:
+          - govet
+        text: unusedwrite
+
+      # Allow dot imports in tests for testify
+      - path: _test\.go
+        text: dot-imports
+
+      # Ignore stuttering in package names (common Go pattern)
+      - linters:
+          - revive
+        text: stutters
+
+      # Ignore exported comment requirements (too noisy)
+      - linters:
+          - revive
+        text: "exported:"
+
+      # Ignore defer close error checks (common pattern)
+      - linters:
+          - errcheck
+        source: defer.*Close\(\)
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/lgrote/sanity-validation
