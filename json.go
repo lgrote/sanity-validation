@@ -3,9 +3,19 @@ package validate
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"slices"
 	"strings"
 )
+
+// NewValidatorFromReader is like NewValidator but reads from an io.Reader.
+func NewValidatorFromReader(r io.Reader) (*Validator, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read schema: %w", err)
+	}
+	return NewValidator(data)
+}
 
 // Validator holds parsed schemas from a sanity schema extract and validates
 // JSON documents against them.

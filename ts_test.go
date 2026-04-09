@@ -2,7 +2,7 @@ package validate
 
 import (
 	"os"
-	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,11 +34,11 @@ func newTestValidatorWithTypes(typeName string, fieldDefs map[string]FieldType) 
 	}
 }
 
-func TestLoadRulesFromSource_Required(t *testing.T) {
+func TestLoadRules_Required(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("article", "title", "body")
-	v.LoadRulesFromSource(`
+	v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'article',
@@ -48,7 +48,7 @@ export default defineType({
     defineField({ name: 'body', type: 'string' }),
   ],
 })
-`)
+`))
 
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
@@ -56,11 +56,11 @@ export default defineType({
 	assert.False(t, byName["body"].Required)
 }
 
-func TestLoadRulesFromSource_MinMax(t *testing.T) {
+func TestLoadRules_MinMax(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("article", "rating")
-	v.LoadRulesFromSource(`
+	v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'article',
@@ -69,7 +69,7 @@ export default defineType({
     defineField({ name: 'rating', type: 'number', validation: (Rule) => Rule.required().min(0).max(5) }),
   ],
 })
-`)
+`))
 
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
@@ -80,11 +80,11 @@ export default defineType({
 	assert.Equal(t, 5, *byName["rating"].Rules[0].Max)
 }
 
-func TestLoadRulesFromSource_URI(t *testing.T) {
+func TestLoadRules_URI(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("config", "affiliateUrl")
-	v.LoadRulesFromSource(`
+	v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'config',
@@ -97,7 +97,7 @@ export default defineType({
     }),
   ],
 })
-`)
+`))
 
 	s := v.Schema("config")
 	byName := fieldMap(s.Fields)
@@ -105,11 +105,11 @@ export default defineType({
 	assert.True(t, byName["affiliateUrl"].Rules[0].URI)
 }
 
-func TestLoadRulesFromSource_TypeRecovery_URL(t *testing.T) {
+func TestLoadRules_TypeRecovery_URL(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("brand", "website")
-	v.LoadRulesFromSource(`
+	v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'brand',
@@ -118,18 +118,18 @@ export default defineType({
     defineField({ name: 'website', title: 'Website', type: 'url', group: 'base' }),
   ],
 })
-`)
+`))
 
 	s := v.Schema("brand")
 	byName := fieldMap(s.Fields)
 	assert.Equal(t, TypeURL, byName["website"].Type)
 }
 
-func TestLoadRulesFromSource_TypeRecovery_Text(t *testing.T) {
+func TestLoadRules_TypeRecovery_Text(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("brand", "description")
-	v.LoadRulesFromSource(`
+	v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'brand',
@@ -138,7 +138,7 @@ export default defineType({
     defineField({ name: 'description', type: 'text', validation: (Rule) => Rule.required() }),
   ],
 })
-`)
+`))
 
 	s := v.Schema("brand")
 	byName := fieldMap(s.Fields)
@@ -146,7 +146,7 @@ export default defineType({
 	assert.True(t, byName["description"].Required)
 }
 
-func TestLoadRulesFromSource_TypeRecovery_Date(t *testing.T) {
+func TestLoadRules_TypeRecovery_Date(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidatorWithTypes("seoFields", map[string]FieldType{
@@ -154,7 +154,7 @@ func TestLoadRulesFromSource_TypeRecovery_Date(t *testing.T) {
 		"dateModified":  TypeString,
 		"lastUpdated":   TypeString,
 	})
-	v.LoadRulesFromSource(`
+	v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'seoFields',
@@ -165,7 +165,7 @@ export default defineType({
     defineField({ name: 'lastUpdated', type: 'datetime' }),
   ],
 })
-`)
+`))
 
 	s := v.Schema("seoFields")
 	byName := fieldMap(s.Fields)
@@ -174,14 +174,13 @@ export default defineType({
 	assert.Equal(t, TypeDatetime, byName["lastUpdated"].Type)
 }
 
-func TestLoadRulesFromSource_NoOverwriteNonString(t *testing.T) {
+func TestLoadRules_NoOverwriteNonString(t *testing.T) {
 	t.Parallel()
 
-	// If the field is already TypeNumber (from schema extract), don't overwrite with TypeString
 	v := newTestValidatorWithTypes("article", map[string]FieldType{
 		"rating": TypeNumber,
 	})
-	v.LoadRulesFromSource(`
+	v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'article',
@@ -190,20 +189,19 @@ export default defineType({
     defineField({ name: 'rating', type: 'number', validation: (Rule) => Rule.required() }),
   ],
 })
-`)
+`))
 
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
-	assert.Equal(t, TypeNumber, byName["rating"].Type) // unchanged
+	assert.Equal(t, TypeNumber, byName["rating"].Type)
 	assert.True(t, byName["rating"].Required)
 }
 
-func TestLoadRulesFromSource_UnknownType(t *testing.T) {
+func TestLoadRules_UnknownType(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("article", "title")
-	// Type "nonexistent" is not in the validator's schemas
-	v.LoadRulesFromSource(`
+	v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'nonexistent',
@@ -212,19 +210,18 @@ export default defineType({
     defineField({ name: 'title', type: 'string', validation: (Rule) => Rule.required() }),
   ],
 })
-`)
+`))
 
-	// article schema should be unchanged
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
 	assert.False(t, byName["title"].Required)
 }
 
-func TestLoadRulesFromSource_NoValidation(t *testing.T) {
+func TestLoadRules_NoValidation(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("article", "title", "body")
-	v.LoadRulesFromSource(`
+	v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'article',
@@ -234,7 +231,7 @@ export default defineType({
     defineField({ name: 'body', type: 'string' }),
   ],
 })
-`)
+`))
 
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
@@ -242,11 +239,11 @@ export default defineType({
 	assert.Empty(t, byName["title"].Rules)
 }
 
-func TestLoadRulesFromSource_MultilineField(t *testing.T) {
+func TestLoadRules_MultilineField(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("brand", "id", "name", "rating")
-	v.LoadRulesFromSource(`
+	v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'brand',
@@ -270,7 +267,7 @@ export default defineType({
     }),
   ],
 })
-`)
+`))
 
 	s := v.Schema("brand")
 	byName := fieldMap(s.Fields)
@@ -283,12 +280,11 @@ export default defineType({
 	assert.Equal(t, 5, *byName["rating"].Rules[0].Max)
 }
 
-func TestLoadRulesFromSource_NestedDefineField(t *testing.T) {
+func TestLoadRules_NestedDefineField(t *testing.T) {
 	t.Parallel()
 
-	// defineField inside an object field's fields array
 	v := newTestValidator("brand", "summary")
-	v.LoadRulesFromSource(`
+	v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'brand',
@@ -303,20 +299,18 @@ export default defineType({
     }),
   ],
 })
-`)
+`))
 
-	// The nested field "summary" should be overlaid on the "brand" schema
-	// since that's the type name from defineType
 	s := v.Schema("brand")
 	byName := fieldMap(s.Fields)
 	assert.True(t, byName["summary"].Required)
 }
 
-func TestLoadRulesFromSource_BooleanMethods(t *testing.T) {
+func TestLoadRules_BooleanMethods(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("article", "code", "label", "items")
-	v.LoadRulesFromSource(`
+	v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'article',
@@ -327,7 +321,7 @@ export default defineType({
     defineField({ name: 'items', type: 'array', validation: (Rule) => Rule.unique() }),
   ],
 })
-`)
+`))
 
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
@@ -343,11 +337,11 @@ export default defineType({
 	assert.True(t, byName["items"].Rules[0].Unique)
 }
 
-func TestLoadRulesFromFile(t *testing.T) {
+func TestLoadRules_IOReader(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	err := os.WriteFile(filepath.Join(dir, "article.ts"), []byte(`
+	v := newTestValidator("article", "title")
+	r := strings.NewReader(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'article',
@@ -356,68 +350,17 @@ export default defineType({
     defineField({ name: 'title', type: 'string', validation: (Rule) => Rule.required() }),
   ],
 })
-`), 0o644)
-	require.NoError(t, err)
-
-	v := newTestValidator("article", "title")
-	err = v.LoadRulesFromFile(filepath.Join(dir, "article.ts"))
-	require.NoError(t, err)
+`)
+	require.NoError(t, v.LoadRulesFromReader(r))
 
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
 	assert.True(t, byName["title"].Required)
 }
 
-func TestLoadRulesFromDir(t *testing.T) {
+func TestLoadRules_RealSchemas(t *testing.T) {
 	t.Parallel()
 
-	dir := t.TempDir()
-	subdir := filepath.Join(dir, "objects")
-	require.NoError(t, os.Mkdir(subdir, 0o755))
-
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "article.ts"), []byte(`
-import { defineField, defineType } from 'sanity'
-export default defineType({
-  name: 'article',
-  type: 'document',
-  fields: [
-    defineField({ name: 'title', type: 'string', validation: (Rule) => Rule.required() }),
-  ],
-})
-`), 0o644))
-
-	require.NoError(t, os.WriteFile(filepath.Join(subdir, "faqItem.ts"), []byte(`
-import { defineField, defineType } from 'sanity'
-export default defineType({
-  name: 'faqItem',
-  type: 'object',
-  fields: [
-    defineField({ name: 'question', type: 'string', validation: (Rule) => Rule.required() }),
-  ],
-})
-`), 0o644))
-
-	// Non-ts file should be ignored
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.js"), []byte(`module.exports = {}`), 0o644))
-
-	v := &Validator{
-		schemas: map[string]*Schema{
-			"article": {Name: "article", Fields: []Field{{Name: "title", Type: TypeString}}},
-			"faqItem": {Name: "faqItem", Fields: []Field{{Name: "question", Type: TypeString}}},
-		},
-	}
-
-	err := v.LoadRulesFromDir(dir)
-	require.NoError(t, err)
-
-	assert.True(t, fieldMap(v.Schema("article").Fields)["title"].Required)
-	assert.True(t, fieldMap(v.Schema("faqItem").Fields)["question"].Required)
-}
-
-func TestLoadRulesFromDir_RealSchemas(t *testing.T) {
-	t.Parallel()
-
-	schemaDir := "/Users/lgr/workspace/go/src/github.com/lgrote/websites/dev.pricecomparecar.com/studio/schemas"
 	schemaJSON := "/Users/lgr/workspace/go/src/github.com/lgrote/websites/dev.pricecomparecar.com/studio/schema.json"
 
 	data, err := os.ReadFile(schemaJSON)
@@ -428,10 +371,21 @@ func TestLoadRulesFromDir_RealSchemas(t *testing.T) {
 	v, err := NewValidator(data)
 	require.NoError(t, err)
 
-	err = v.LoadRulesFromDir(schemaDir)
-	require.NoError(t, err)
+	// Load individual TS files
+	tsFiles := []string{
+		"/Users/lgr/workspace/go/src/github.com/lgrote/websites/dev.pricecomparecar.com/studio/schemas/documents/brand.ts",
+		"/Users/lgr/workspace/go/src/github.com/lgrote/websites/dev.pricecomparecar.com/studio/schemas/objects/categoryRating.ts",
+		"/Users/lgr/workspace/go/src/github.com/lgrote/websites/dev.pricecomparecar.com/studio/schemas/objects/sections/faqSection.ts",
+	}
+	for _, path := range tsFiles {
+		tsData, err := os.ReadFile(path)
+		if err != nil {
+			t.Skipf("real schema file not available: %s", path)
+		}
+		v.LoadRules(tsData)
+	}
 
-	// brand.ts: id, name, title, description are required
+	// brand.ts: id, name, rating are required
 	brand := v.Schema("brand")
 	require.NotNil(t, brand)
 	byName := fieldMap(brand.Fields)
@@ -445,7 +399,7 @@ func TestLoadRulesFromDir_RealSchemas(t *testing.T) {
 	assert.Equal(t, 0, *byName["rating"].Rules[0].Min)
 	assert.Equal(t, 5, *byName["rating"].Rules[0].Max)
 
-	// Type recovery: brand.website should be TypeURL (was TypeString from extract)
+	// Type recovery: brand.website should be TypeURL
 	assert.Equal(t, TypeURL, byName["website"].Type, "brand.website should be recovered to TypeURL")
 
 	// Type recovery: brand.description should be TypeText

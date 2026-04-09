@@ -2,58 +2,32 @@ package validate
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
-// LoadRulesFromDir walks dir recursively for .ts files and extracts
-// validation rules and Sanity field types, overlaying them on matching schemas.
-func (v *Validator) LoadRulesFromDir(dir string) error {
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() || !strings.HasSuffix(path, ".ts") {
-			return nil
-		}
-		return v.LoadRulesFromFile(path)
-	})
-	if err != nil {
-		return fmt.Errorf("load rules from dir: %w", err)
-	}
-	return nil
-}
-
-// LoadRulesFromFile reads a single .ts schema file and extracts validation
-// rules and Sanity field types, overlaying them on matching schemas.
-// The file must use defineType/defineField from the 'sanity' package.
+// LoadRules extracts validation rules and Sanity field types from a
+// TypeScript schema source (using defineType/defineField from 'sanity')
+// and overlays them on matching schemas in this Validator.
 // Types not present in the Validator's schemas are silently skipped.
-func (v *Validator) LoadRulesFromFile(path string) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("read schema file: %w", err)
-	}
-
+func (v *Validator) LoadRules(data []byte) {
 	typeName, fields := parseTS(string(data))
-	if typeName == "" {
-		return nil
-	}
-
-	v.overlayTSFields(typeName, fields)
-	return nil
-}
-
-// LoadRulesFromSource is like LoadRulesFromFile but reads from a string.
-// Useful for testing.
-func (v *Validator) LoadRulesFromSource(source string) {
-	typeName, fields := parseTS(source)
 	if typeName == "" {
 		return
 	}
 	v.overlayTSFields(typeName, fields)
+}
+
+// LoadRulesFromReader is like LoadRules but reads from an io.Reader.
+func (v *Validator) LoadRulesFromReader(r io.Reader) error {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return fmt.Errorf("read rules: %w", err)
+	}
+	v.LoadRules(data)
+	return nil
 }
 
 // tsField holds parsed validation info for a single field from a TS schema.

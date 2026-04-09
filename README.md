@@ -150,7 +150,14 @@ func main() {
 	// Enrich with validation rules from TS source files.
 	// The schema extract doesn't include validation rules (required, min/max, etc.)
 	// because they are JS runtime functions. This parses the TS files to recover them.
-	_ = v.LoadRulesFromDir("studio/schemas/")
+	for _, path := range []string{
+		"studio/schemas/documents/brand.ts",
+		"studio/schemas/objects/categoryRating.ts",
+		"studio/schemas/objects/sections/faqSection.ts",
+	} {
+		ts, _ := os.ReadFile(path)
+		v.LoadRules(ts)
+	}
 
 	// Validate a raw Sanity API document
 	docJSON := []byte(`{
@@ -177,7 +184,7 @@ func main() {
 - Nested objects
 - Portable Text / block content detection
 
-### What `LoadRulesFromDir` / `LoadRulesFromFile` adds from TS files
+### What `LoadRules` adds from TS files
 
 - `Rule.required()` -- marks fields as required
 - `Rule.min(n)` / `Rule.max(n)` -- value or length bounds
