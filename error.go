@@ -38,13 +38,13 @@ const (
 	ErrRuleCustom        ErrorType = "rule_custom"
 )
 
-// ErrorLevel indicates the severity of a validation error.
-type ErrorLevel string
+// Severity indicates the severity of a validation result (error, warning, or info).
+type Severity string
 
 const (
-	LevelError   ErrorLevel = "error"
-	LevelWarning ErrorLevel = "warning"
-	LevelInfo    ErrorLevel = "info"
+	LevelError   Severity = "error"
+	LevelWarning Severity = "warning"
+	LevelInfo    Severity = "info"
 )
 
 // FieldType identifies a Sanity schema field type.
@@ -132,7 +132,7 @@ type Rule struct {
 	Unique        bool         // array items must be unique (excl _key)
 	AssetRequired bool         // image/file must have asset ref
 	Custom        []CustomRule // user-defined validators
-	Level         ErrorLevel   // LevelError (default), LevelWarning, LevelInfo
+	Level         Severity     // LevelError (default), LevelWarning, LevelInfo
 }
 
 // CustomRule is a user-defined validation function.
@@ -153,12 +153,12 @@ type RuleError struct {
 
 // Error is a single validation error with path and context.
 type Error struct {
-	Path    string     // JSON path, e.g. "fields.prosCons[2].detail"
-	Message string     // human/AI-readable description
-	Type    ErrorType  // error category: ErrMissingKey, ErrWrongType, ErrMissingRequired, etc.
-	Got     string     // what was found
-	Want    string     // what was expected
-	Level   ErrorLevel // LevelError (default), LevelWarning, LevelInfo
+	Path    string    // JSON path, e.g. "fields.prosCons[2].detail"
+	Message string    // human/AI-readable description
+	Type    ErrorType // error category: ErrMissingKey, ErrWrongType, ErrMissingRequired, etc.
+	Got     string    // what was found
+	Want    string    // what was expected
+	Level   Severity  // LevelError (default), LevelWarning, LevelInfo
 }
 
 func (e Error) Error() string {
