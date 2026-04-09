@@ -133,6 +133,7 @@ This produces a `schema.json` file.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -156,7 +157,9 @@ func main() {
 		"studio/schemas/objects/sections/faqSection.ts",
 	} {
 		ts, _ := os.ReadFile(path)
-		v.LoadRules(ts)
+		if err := v.LoadRules(ts); err != nil {
+			panic(err)
+		}
 	}
 
 	// Validate a raw Sanity API document
@@ -167,9 +170,14 @@ func main() {
 		"rating": 7
 	}`)
 
-	errs := v.ValidateDocument(docJSON)
-	for _, e := range errs {
-		fmt.Printf("[%s] %s: %s\n", e.Level, e.Path, e.Message)
+	err = v.ValidateDocument(docJSON)
+	var ve *validate.ValidationError
+	if errors.As(err, &ve) {
+		for _, e := range ve.Errors {
+			fmt.Printf("[%s] %s: %s\n", e.Level, e.Path, e.Message)
+		}
+	} else if err != nil {
+		panic(err)
 	}
 }
 ```
