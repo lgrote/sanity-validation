@@ -2,7 +2,6 @@ package validate
 
 import (
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -335,27 +334,6 @@ export default defineType({
 
 	require.Len(t, byName["items"].Rules, 1)
 	assert.True(t, byName["items"].Rules[0].Unique)
-}
-
-func TestLoadRules_IOReader(t *testing.T) {
-	t.Parallel()
-
-	v := newTestValidator("article", "title")
-	r := strings.NewReader(`
-import { defineField, defineType } from 'sanity'
-export default defineType({
-  name: 'article',
-  type: 'document',
-  fields: [
-    defineField({ name: 'title', type: 'string', validation: (Rule) => Rule.required() }),
-  ],
-})
-`)
-	require.NoError(t, v.LoadRulesFromReader(r))
-
-	s := v.Schema("article")
-	byName := fieldMap(s.Fields)
-	assert.True(t, byName["title"].Required)
 }
 
 func TestLoadRules_RealSchemas(t *testing.T) {

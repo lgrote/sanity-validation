@@ -1,8 +1,6 @@
 package validate
 
 import (
-	"fmt"
-	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -18,16 +16,6 @@ func (v *Validator) LoadRules(data []byte) {
 		return
 	}
 	v.overlayTSFields(typeName, fields)
-}
-
-// LoadRulesFromReader is like LoadRules but reads from an io.Reader.
-func (v *Validator) LoadRulesFromReader(r io.Reader) error {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return fmt.Errorf("read rules: %w", err)
-	}
-	v.LoadRules(data)
-	return nil
 }
 
 // tsField holds parsed validation info for a single field from a TS schema.
