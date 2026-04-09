@@ -113,6 +113,87 @@ Explicit `Rule` constraints attached to schema fields:
 
 Each rule can set a `Level` (`error`, `warning`, or `info`) to control severity.
 
+## JSON API -- validate Sanity documents from schema files
+
+If you have a Sanity Studio project, you can validate raw JSON documents directly without constructing Go structs manually.
+
+### 1. Extract the schema
+
+Run this in your Sanity Studio project:
+
+```bash
+npx sanity schema extract --enforce-required-fields
+```
+
+This produces a `schema.json` file.
+
+### 2. Load and validate
+
+```go
+package main
+
+import (
+	"fmt"
+	"os"
+
+	validate "github.com/lgrote/sanity-validation"
+)
+
+func main() {
+	// Load the schema extract
+	schemaJSON, _ := os.ReadFile("studio/schema.json")
+	v, err := validate.NewValidator(schemaJSON)
+	if err != nil {
+		panic(err)
+	}
+
+	// Enrich with validation rules from TS source files.
+	// The schema extract doesn't include validation rules (required, min/max, etc.)
+	// because they are JS runtime functions. This parses the TS files to recover them.
+	_ = v.LoadRulesFromDir("studio/schemas/")
+
+	// Validate a raw Sanity API document
+	docJSON := []byte(`{
+		"_id": "brand-123",
+		"_type": "brand",
+		"name": "Hertz",
+		"rating": 7
+	}`)
+
+	errs := v.ValidateDocument(docJSON)
+	for _, e := range errs {
+		fmt.Printf("[%s] %s: %s\n", e.Level, e.Path, e.Message)
+	}
+}
+```
+
+### What `NewValidator` parses from the schema extract
+
+- Document and object type schemas with all fields
+- Field types: string, number, boolean, array, object, image, reference
+- Enums (union of string literals)
+- Arrays of primitives and named types, including polymorphic arrays
+- Inline type references (resolved automatically via TypeResolver)
+- Nested objects
+- Portable Text / block content detection
+
+### What `LoadRulesFromDir` / `LoadRulesFromFile` adds from TS files
+
+- `Rule.required()` -- marks fields as required
+- `Rule.min(n)` / `Rule.max(n)` -- value or length bounds
+- `Rule.uri()`, `Rule.email()`, `Rule.regex()`, etc. -- format rules
+- `Rule.warning()` / `Rule.info()` -- severity levels
+- Type recovery: `url`, `text`, `date`, `datetime`, `slug` (the schema extract flattens these to `string`)
+
+### Manual rule overlay
+
+You can also add rules programmatically instead of (or in addition to) loading TS files:
+
+```go
+v.Require("brand", "id", "name", "title", "description", "rating")
+v.AddRule("brand", "rating", validate.Rule{Min: &min, Max: &max})
+```
+
 ## Type resolution
 
 For documents with sections or polymorphic arrays, pass a `TypeResolver` function to look up named types at validation time:
