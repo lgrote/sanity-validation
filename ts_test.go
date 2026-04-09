@@ -37,7 +37,7 @@ func TestLoadRules_Required(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("article", "title", "body")
-	v.LoadRules([]byte(`
+	require.NoError(t, v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'article',
@@ -47,7 +47,7 @@ export default defineType({
     defineField({ name: 'body', type: 'string' }),
   ],
 })
-`))
+`)))
 
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
@@ -59,7 +59,7 @@ func TestLoadRules_MinMax(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("article", "rating")
-	v.LoadRules([]byte(`
+	require.NoError(t, v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'article',
@@ -68,7 +68,7 @@ export default defineType({
     defineField({ name: 'rating', type: 'number', validation: (Rule) => Rule.required().min(0).max(5) }),
   ],
 })
-`))
+`)))
 
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
@@ -83,7 +83,7 @@ func TestLoadRules_URI(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("config", "affiliateUrl")
-	v.LoadRules([]byte(`
+	require.NoError(t, v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'config',
@@ -96,7 +96,7 @@ export default defineType({
     }),
   ],
 })
-`))
+`)))
 
 	s := v.Schema("config")
 	byName := fieldMap(s.Fields)
@@ -108,7 +108,7 @@ func TestLoadRules_TypeRecovery_URL(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("brand", "website")
-	v.LoadRules([]byte(`
+	require.NoError(t, v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'brand',
@@ -117,7 +117,7 @@ export default defineType({
     defineField({ name: 'website', title: 'Website', type: 'url', group: 'base' }),
   ],
 })
-`))
+`)))
 
 	s := v.Schema("brand")
 	byName := fieldMap(s.Fields)
@@ -128,7 +128,7 @@ func TestLoadRules_TypeRecovery_Text(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("brand", "description")
-	v.LoadRules([]byte(`
+	require.NoError(t, v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'brand',
@@ -137,7 +137,7 @@ export default defineType({
     defineField({ name: 'description', type: 'text', validation: (Rule) => Rule.required() }),
   ],
 })
-`))
+`)))
 
 	s := v.Schema("brand")
 	byName := fieldMap(s.Fields)
@@ -153,7 +153,7 @@ func TestLoadRules_TypeRecovery_Date(t *testing.T) {
 		"dateModified":  TypeString,
 		"lastUpdated":   TypeString,
 	})
-	v.LoadRules([]byte(`
+	require.NoError(t, v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'seoFields',
@@ -164,7 +164,7 @@ export default defineType({
     defineField({ name: 'lastUpdated', type: 'datetime' }),
   ],
 })
-`))
+`)))
 
 	s := v.Schema("seoFields")
 	byName := fieldMap(s.Fields)
@@ -179,7 +179,7 @@ func TestLoadRules_NoOverwriteNonString(t *testing.T) {
 	v := newTestValidatorWithTypes("article", map[string]FieldType{
 		"rating": TypeNumber,
 	})
-	v.LoadRules([]byte(`
+	require.NoError(t, v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'article',
@@ -188,7 +188,7 @@ export default defineType({
     defineField({ name: 'rating', type: 'number', validation: (Rule) => Rule.required() }),
   ],
 })
-`))
+`)))
 
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
@@ -200,7 +200,7 @@ func TestLoadRules_UnknownType(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("article", "title")
-	v.LoadRules([]byte(`
+	err := v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'nonexistent',
@@ -210,7 +210,10 @@ export default defineType({
   ],
 })
 `))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found in schema")
 
+	// article schema should be unchanged
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
 	assert.False(t, byName["title"].Required)
@@ -220,7 +223,7 @@ func TestLoadRules_NoValidation(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("article", "title", "body")
-	v.LoadRules([]byte(`
+	require.NoError(t, v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'article',
@@ -230,7 +233,7 @@ export default defineType({
     defineField({ name: 'body', type: 'string' }),
   ],
 })
-`))
+`)))
 
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
@@ -242,7 +245,7 @@ func TestLoadRules_MultilineField(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("brand", "id", "name", "rating")
-	v.LoadRules([]byte(`
+	require.NoError(t, v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'brand',
@@ -266,7 +269,7 @@ export default defineType({
     }),
   ],
 })
-`))
+`)))
 
 	s := v.Schema("brand")
 	byName := fieldMap(s.Fields)
@@ -283,7 +286,7 @@ func TestLoadRules_NestedDefineField(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("brand", "summary")
-	v.LoadRules([]byte(`
+	require.NoError(t, v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'brand',
@@ -298,7 +301,7 @@ export default defineType({
     }),
   ],
 })
-`))
+`)))
 
 	s := v.Schema("brand")
 	byName := fieldMap(s.Fields)
@@ -309,7 +312,7 @@ func TestLoadRules_BooleanMethods(t *testing.T) {
 	t.Parallel()
 
 	v := newTestValidator("article", "code", "label", "items")
-	v.LoadRules([]byte(`
+	require.NoError(t, v.LoadRules([]byte(`
 import { defineField, defineType } from 'sanity'
 export default defineType({
   name: 'article',
@@ -320,7 +323,7 @@ export default defineType({
     defineField({ name: 'items', type: 'array', validation: (Rule) => Rule.unique() }),
   ],
 })
-`))
+`)))
 
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
@@ -360,7 +363,7 @@ func TestLoadRules_RealSchemas(t *testing.T) {
 		if err != nil {
 			t.Skipf("real schema file not available: %s", path)
 		}
-		v.LoadRules(tsData)
+		require.NoError(t, v.LoadRules(tsData))
 	}
 
 	// brand.ts: id, name, rating are required

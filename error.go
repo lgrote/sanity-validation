@@ -169,6 +169,16 @@ func (e Error) Error() string {
 	return s
 }
 
+// ValidationError is returned by ValidateDocument when a document has
+// validation issues. Use errors.As to extract it from the returned error.
+type ValidationError struct {
+	Errors []Error
+}
+
+func (e *ValidationError) Error() string {
+	return FormatErrors(e.Errors)
+}
+
 // FormatErrors formats errors for LLM consumption — one line per error.
 func FormatErrors(errs []Error) string {
 	if len(errs) == 0 {

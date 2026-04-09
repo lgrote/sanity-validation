@@ -124,21 +124,25 @@ func ParseDocument(data []byte) (*Document, error) {
 
 // ValidateDocument parses a raw Sanity JSON document and validates it
 // against the schema matching its _type field.
-func (v *Validator) ValidateDocument(data []byte) []Error {
+//
+// Returns *ValidationError if the document has validation issues,
+// or a plain error for parse/schema failures. Returns nil if valid.
+func (v *Validator) ValidateDocument(data []byte) error {
 	doc, err := ParseDocument(data)
 	if err != nil {
-		return []Error{{Message: err.Error(), Type: ErrNilDocument, Level: LevelError}}
+		return err
 	}
 
 	schema := v.schemas[doc.Type]
 	if schema == nil {
-		return []Error{{
-			Path: "_type", Message: fmt.Sprintf("unknown document type %q", doc.Type),
-			Type: ErrMissingType, Got: doc.Type, Level: LevelError,
-		}}
+		return fmt.Errorf("unknown document type %q", doc.Type)
 	}
 
-	return Validate(doc, schema, v.Resolver())
+	errs := Validate(doc, schema, v.Resolver())
+	if len(errs) > 0 {
+		return &ValidationError{Errors: errs}
+	}
+	return nil
 }
 
 // --- Sanity schema extract JSON types ---

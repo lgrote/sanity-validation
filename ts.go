@@ -1,6 +1,8 @@
 package validate
 
 import (
+	"errors"
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -9,13 +11,19 @@ import (
 // LoadRules extracts validation rules and Sanity field types from a
 // TypeScript schema source (using defineType/defineField from 'sanity')
 // and overlays them on matching schemas in this Validator.
-// Types not present in the Validator's schemas are silently skipped.
-func (v *Validator) LoadRules(data []byte) {
+//
+// Returns an error if the source does not contain a defineType declaration
+// or if the type is not found in the Validator's schemas.
+func (v *Validator) LoadRules(data []byte) error {
 	typeName, fields := parseTS(string(data))
 	if typeName == "" {
-		return
+		return errors.New("no defineType found in source")
+	}
+	if v.schemas[typeName] == nil {
+		return fmt.Errorf("type %q not found in schema", typeName)
 	}
 	v.overlayTSFields(typeName, fields)
+	return nil
 }
 
 // tsField holds parsed validation info for a single field from a TS schema.

@@ -576,31 +576,30 @@ func TestValidateDocument_EndToEnd(t *testing.T) {
 
 	// Valid document
 	validDoc := `{"_id": "1", "_type": "article", "name": "Test", "rating": 3, "status": "draft"}`
-	errs := v.ValidateDocument([]byte(validDoc))
-	assert.Empty(t, errs)
+	require.NoError(t, v.ValidateDocument([]byte(validDoc)))
 
 	// Missing required field
 	missingName := `{"_id": "2", "_type": "article", "rating": 3}`
-	errs = v.ValidateDocument([]byte(missingName))
-	assert.NotEmpty(t, errs)
-	assert.Equal(t, ErrMissingRequired, errs[0].Type)
+	err = v.ValidateDocument([]byte(missingName))
+	var ve *ValidationError
+	require.ErrorAs(t, err, &ve)
+	assert.Equal(t, ErrMissingRequired, ve.Errors[0].Type)
 
 	// Invalid enum value
 	badEnum := `{"_id": "3", "_type": "article", "name": "Test", "status": "invalid"}`
-	errs = v.ValidateDocument([]byte(badEnum))
-	assert.NotEmpty(t, errs)
-	assert.Equal(t, ErrInvalidOption, errs[0].Type)
+	err = v.ValidateDocument([]byte(badEnum))
+	require.ErrorAs(t, err, &ve)
+	assert.Equal(t, ErrInvalidOption, ve.Errors[0].Type)
 
 	// Rating out of range
 	badRating := `{"_id": "4", "_type": "article", "name": "Test", "rating": 10}`
-	errs = v.ValidateDocument([]byte(badRating))
-	assert.NotEmpty(t, errs)
+	require.Error(t, v.ValidateDocument([]byte(badRating)))
 
 	// Wrong type
 	wrongType := `{"_id": "5", "_type": "article", "name": "Test", "rating": "not a number"}`
-	errs = v.ValidateDocument([]byte(wrongType))
-	assert.NotEmpty(t, errs)
-	assert.Equal(t, ErrWrongType, errs[0].Type)
+	err = v.ValidateDocument([]byte(wrongType))
+	require.ErrorAs(t, err, &ve)
+	assert.Equal(t, ErrWrongType, ve.Errors[0].Type)
 }
 
 func TestValidateDocument_UnknownType(t *testing.T) {
@@ -610,9 +609,11 @@ func TestValidateDocument_UnknownType(t *testing.T) {
 	require.NoError(t, err)
 
 	doc := `{"_id": "1", "_type": "nonexistent"}`
-	errs := v.ValidateDocument([]byte(doc))
-	assert.NotEmpty(t, errs)
-	assert.Equal(t, ErrMissingType, errs[0].Type)
+	err = v.ValidateDocument([]byte(doc))
+	require.Error(t, err)
+	// Not a ValidationError — it's a schema lookup failure
+	var ve *ValidationError
+	assert.NotErrorAs(t, err, &ve)
 }
 
 func TestValidateDocument_TypeResolution(t *testing.T) {
@@ -665,8 +666,7 @@ func TestValidateDocument_TypeResolution(t *testing.T) {
 			{"_type": "faqItem", "_key": "k1", "question": "How?"}
 		]
 	}`
-	errs := v.ValidateDocument([]byte(validDoc))
-	assert.Empty(t, errs)
+	require.NoError(t, v.ValidateDocument([]byte(validDoc)))
 
 	// Invalid: array item missing required question field
 	invalidDoc := `{
@@ -675,8 +675,7 @@ func TestValidateDocument_TypeResolution(t *testing.T) {
 			{"_type": "faqItem", "_key": "k1"}
 		]
 	}`
-	errs = v.ValidateDocument([]byte(invalidDoc))
-	assert.NotEmpty(t, errs)
+	assert.Error(t, v.ValidateDocument([]byte(invalidDoc)))
 }
 
 func TestNewValidator_RealSchemaExtract(t *testing.T) {
