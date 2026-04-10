@@ -11,7 +11,7 @@ import (
 )
 
 // evaluateRule evaluates a single Rule against a field value.
-func evaluateRule(val any, r Rule, f Field, path string, _ TypeResolver, parent map[string]any, doc *Document, errs *[]Error) {
+func evaluateRule(val any, r Rule, f Field, path string, parent map[string]any, doc *Document, errs *[]Error) {
 	level := r.Level
 	if level == "" {
 		level = LevelError
@@ -20,7 +20,10 @@ func evaluateRule(val any, r Rule, f Field, path string, _ TypeResolver, parent 
 	// Min/Max — behavior depends on field type.
 	switch f.Type { //nolint:exhaustive // only string, text, number, array have min/max semantics
 	case TypeString, TypeText:
-		s, _ := val.(string)
+		s, ok := val.(string)
+		if !ok {
+			break
+		}
 		n := utf8.RuneCountInString(s)
 		if r.Min != nil && n < *r.Min {
 			*errs = append(*errs, Error{
@@ -57,7 +60,10 @@ func evaluateRule(val any, r Rule, f Field, path string, _ TypeResolver, parent 
 			}
 		}
 	case TypeArray:
-		arr, _ := val.([]any)
+		arr, ok := val.([]any)
+		if !ok {
+			break
+		}
 		if r.Min != nil && len(arr) < *r.Min {
 			*errs = append(*errs, Error{
 				Path: path, Message: fmt.Sprintf("array has %d items, minimum is %d", len(arr), *r.Min),
@@ -80,43 +86,46 @@ func evaluateRule(val any, r Rule, f Field, path string, _ TypeResolver, parent 
 
 	// Regex.
 	if r.Regex != "" {
-		s, _ := val.(string)
-		re := r.CompiledRegex
-		if re == nil {
-			var err error
-			re, err = regexp.Compile(r.Regex)
-			if err != nil {
-				re = nil
+		if s, ok := val.(string); ok {
+			re := r.compiledRegex
+			if re == nil {
+				var err error
+				re, err = regexp.Compile(r.Regex)
+				if err != nil {
+					re = nil
+				}
 			}
-		}
-		if re != nil && !re.MatchString(s) {
-			*errs = append(*errs, Error{
-				Path: path, Message: "value does not match pattern " + r.Regex,
-				Type: ErrRuleRegex, Got: describeValue(val), Want: "match " + r.Regex, Level: level,
-			})
+			if re != nil && !re.MatchString(s) {
+				*errs = append(*errs, Error{
+					Path: path, Message: "value does not match pattern " + r.Regex,
+					Type: ErrRuleRegex, Got: describeValue(val), Want: "match " + r.Regex, Level: level,
+				})
+			}
 		}
 	}
 
 	// Email.
 	if r.Email {
-		s, _ := val.(string)
-		if _, err := mail.ParseAddress(s); err != nil {
-			*errs = append(*errs, Error{
-				Path: path, Message: "invalid email address",
-				Type: ErrRuleEmail, Got: s, Want: "valid email", Level: level,
-			})
+		if s, ok := val.(string); ok {
+			if _, err := mail.ParseAddress(s); err != nil {
+				*errs = append(*errs, Error{
+					Path: path, Message: "invalid email address",
+					Type: ErrRuleEmail, Got: s, Want: "valid email", Level: level,
+				})
+			}
 		}
 	}
 
 	// URI.
 	if r.URI {
-		s, _ := val.(string)
-		u, err := url.Parse(s)
-		if err != nil || u.Scheme == "" {
-			*errs = append(*errs, Error{
-				Path: path, Message: "invalid URI",
-				Type: ErrRuleURI, Got: s, Want: "valid URI with scheme", Level: level,
-			})
+		if s, ok := val.(string); ok {
+			u, err := url.Parse(s)
+			if err != nil || u.Scheme == "" {
+				*errs = append(*errs, Error{
+					Path: path, Message: "invalid URI",
+					Type: ErrRuleURI, Got: s, Want: "valid URI with scheme", Level: level,
+				})
+			}
 		}
 	}
 
@@ -155,8 +164,7 @@ func evaluateRule(val any, r Rule, f Field, path string, _ TypeResolver, parent 
 
 	// Uppercase.
 	if r.Uppercase {
-		s, _ := val.(string)
-		if s != "" && s != strings.ToUpper(s) {
+		if s, ok := val.(string); ok && s != "" && s != strings.ToUpper(s) {
 			*errs = append(*errs, Error{
 				Path: path, Message: "expected all uppercase",
 				Type: ErrRuleUppercase, Got: s, Want: strings.ToUpper(s), Level: level,
@@ -166,8 +174,7 @@ func evaluateRule(val any, r Rule, f Field, path string, _ TypeResolver, parent 
 
 	// Lowercase.
 	if r.Lowercase {
-		s, _ := val.(string)
-		if s != "" && s != strings.ToLower(s) {
+		if s, ok := val.(string); ok && s != "" && s != strings.ToLower(s) {
 			*errs = append(*errs, Error{
 				Path: path, Message: "expected all lowercase",
 				Type: ErrRuleLowercase, Got: s, Want: strings.ToLower(s), Level: level,

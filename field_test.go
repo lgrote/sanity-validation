@@ -347,3 +347,45 @@ func TestField_CustomType_NotFound(t *testing.T) {
 	errs := validateOneFieldWithResolver(val, f, resolver)
 	assert.Empty(t, errs, "expected no errors when TypeResolver returns nil (can't validate unknown type)")
 }
+
+// --- Datetime format ---
+
+func TestField_Datetime_Valid(t *testing.T) {
+	t.Parallel()
+	errs := validateOneField("2024-01-15T10:30:00Z", Field{Name: "published", Type: TypeDatetime})
+	assert.Empty(t, errs)
+}
+
+func TestField_Datetime_ValidWithOffset(t *testing.T) {
+	t.Parallel()
+	errs := validateOneField("2024-01-15T10:30:00+02:00", Field{Name: "published", Type: TypeDatetime})
+	assert.Empty(t, errs)
+}
+
+func TestField_Datetime_InvalidFormat(t *testing.T) {
+	t.Parallel()
+	errs := validateOneField("not-a-datetime", Field{Name: "published", Type: TypeDatetime})
+	require.NotEmpty(t, errs)
+	assert.Equal(t, ErrInvalidFormat, errs[0].Type)
+}
+
+func TestField_Datetime_DateOnly(t *testing.T) {
+	t.Parallel()
+	errs := validateOneField("2024-01-15", Field{Name: "published", Type: TypeDatetime})
+	require.NotEmpty(t, errs)
+	assert.Equal(t, ErrInvalidFormat, errs[0].Type)
+}
+
+// --- Structural errors gate rules ---
+
+func TestField_StructuralErrorPreventsRules(t *testing.T) {
+	t.Parallel()
+	minLen := 5
+	errs := validateOneField(42, Field{
+		Name:  "name",
+		Type:  TypeString,
+		Rules: []Rule{{Min: &minLen}},
+	})
+	require.Len(t, errs, 1, "only structural error, no rule errors")
+	assert.Equal(t, ErrWrongType, errs[0].Type)
+}

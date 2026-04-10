@@ -70,34 +70,42 @@ func (v *Validator) Resolver() TypeResolver {
 
 // Require marks fields as required on a schema. This is needed because
 // `sanity schema extract` does not include validation rules.
-func (v *Validator) Require(typeName string, fields ...string) {
+// Returns false if the type is not found.
+func (v *Validator) Require(typeName string, fields ...string) bool {
 	schema := v.schemas[typeName]
 	if schema == nil {
-		return
+		return false
 	}
 	for i := range schema.Fields {
 		if slices.Contains(fields, schema.Fields[i].Name) {
 			schema.Fields[i].Required = true
 		}
 	}
+	return true
 }
 
 // AddRule adds a validation rule to a field. This is needed because
 // `sanity schema extract` does not include validation rules.
-func (v *Validator) AddRule(typeName, fieldName string, r Rule) {
+// Returns an error if the type or field is not found, or if the regex is invalid.
+func (v *Validator) AddRule(typeName, fieldName string, r Rule) error {
 	schema := v.schemas[typeName]
 	if schema == nil {
-		return
+		return fmt.Errorf("type %q not found", typeName)
 	}
-	if r.Regex != "" && r.CompiledRegex == nil {
-		r.CompiledRegex, _ = regexp.Compile(r.Regex)
+	if r.Regex != "" && r.compiledRegex == nil {
+		var err error
+		r.compiledRegex, err = regexp.Compile(r.Regex)
+		if err != nil {
+			return fmt.Errorf("compile regex %q: %w", r.Regex, err)
+		}
 	}
 	for i := range schema.Fields {
 		if schema.Fields[i].Name == fieldName {
 			schema.Fields[i].Rules = append(schema.Fields[i].Rules, r)
-			return
+			return nil
 		}
 	}
+	return fmt.Errorf("field %q not found on type %q", fieldName, typeName)
 }
 
 // ParseDocument parses a raw Sanity API JSON document into a Document.
@@ -118,11 +126,6 @@ func ParseDocument(data []byte) (*Document, error) {
 
 	for k, v := range raw {
 		if strings.HasPrefix(k, "_") {
-			continue
-		}
-		// Skip fields already extracted into Document struct fields.
-		switch k {
-		case "title", "language", "description":
 			continue
 		}
 		doc.Fields[k] = v

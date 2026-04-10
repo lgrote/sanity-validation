@@ -385,3 +385,17 @@ func TestRule_Multiple_AllChecked(t *testing.T) {
 	assert.True(t, hasMin, "expected rule_min error")
 	assert.True(t, hasUpper, "expected rule_uppercase error")
 }
+
+func TestRule_WrongTypeSkipsStringRules(t *testing.T) {
+	t.Parallel()
+	// A non-string value with string rules should produce only a structural error,
+	// not misleading rule errors (e.g., "invalid email" for a number).
+	errs := validateOneField(42, Field{
+		Name:  "email",
+		Type:  TypeString,
+		Rules: []Rule{{Email: true}},
+	})
+	for _, e := range errs {
+		assert.NotEqual(t, ErrRuleEmail, e.Type, "email rule should not fire on non-string value")
+	}
+}

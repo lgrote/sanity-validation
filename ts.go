@@ -22,8 +22,7 @@ func (v *Validator) LoadRules(data []byte) error {
 	if v.schemas[typeName] == nil {
 		return fmt.Errorf("type %q not found in schema", typeName)
 	}
-	v.overlayTSFields(typeName, fields)
-	return nil
+	return v.overlayTSFields(typeName, fields)
 }
 
 // tsField holds parsed validation info for a single field from a TS schema.
@@ -88,6 +87,23 @@ func extractBraceBlock(source string, pos int) string {
 	depth := 0
 	for i := pos; i < len(source); i++ {
 		ch := source[i]
+
+		// Skip single-line comments.
+		if ch == '/' && i+1 < len(source) && source[i+1] == '/' {
+			for i < len(source) && source[i] != '\n' {
+				i++
+			}
+			continue
+		}
+		// Skip block comments.
+		if ch == '/' && i+1 < len(source) && source[i+1] == '*' {
+			i += 2
+			for i+1 < len(source) && (source[i] != '*' || source[i+1] != '/') {
+				i++
+			}
+			i++ // skip closing '/'
+			continue
+		}
 
 		// Skip string literals.
 		if ch == '\'' || ch == '"' || ch == '`' {
@@ -195,10 +211,10 @@ func parseValidationChain(chain string, f *tsField) {
 }
 
 // overlayTSFields merges parsed TS field info onto the schema.
-func (v *Validator) overlayTSFields(typeName string, fields []tsField) {
+func (v *Validator) overlayTSFields(typeName string, fields []tsField) error {
 	schema := v.schemas[typeName]
 	if schema == nil {
-		return
+		return nil
 	}
 
 	for _, tf := range fields {
@@ -212,8 +228,12 @@ func (v *Validator) overlayTSFields(typeName string, fields []tsField) {
 			}
 
 			if !isEmptyRule(tf.Rule) {
-				if tf.Rule.Regex != "" && tf.Rule.CompiledRegex == nil {
-					tf.Rule.CompiledRegex, _ = regexp.Compile(tf.Rule.Regex)
+				if tf.Rule.Regex != "" && tf.Rule.compiledRegex == nil {
+					var err error
+					tf.Rule.compiledRegex, err = regexp.Compile(tf.Rule.Regex)
+					if err != nil {
+						return fmt.Errorf("field %q: compile regex %q: %w", tf.Name, tf.Rule.Regex, err)
+					}
 				}
 				schema.Fields[i].Rules = append(schema.Fields[i].Rules, tf.Rule)
 			}
@@ -225,6 +245,7 @@ func (v *Validator) overlayTSFields(typeName string, fields []tsField) {
 			break
 		}
 	}
+	return nil
 }
 
 func isEmptyRule(r Rule) bool {

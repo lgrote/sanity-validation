@@ -475,10 +475,10 @@ func TestParseDocument(t *testing.T) {
 	assert.InDelta(t, 4.2, doc.Fields["rating"], 0.001)
 	assert.Len(t, doc.Fields["tags"], 2)
 
-	// title/language/description are on the struct, not in Fields
-	assert.Nil(t, doc.Fields["title"])
-	assert.Nil(t, doc.Fields["language"])
-	assert.Nil(t, doc.Fields["description"])
+	// title/language/description are on both the struct and in Fields
+	assert.Equal(t, "Hertz Review", doc.Fields["title"])
+	assert.Equal(t, "en", doc.Fields["language"])
+	assert.Equal(t, "A review of Hertz", doc.Fields["description"])
 }
 
 func TestParseDocument_InvalidJSON(t *testing.T) {
@@ -532,7 +532,7 @@ func TestAddRule(t *testing.T) {
 	require.NoError(t, err)
 
 	ruleMin, ruleMax := 0, 5
-	v.AddRule("article", "rating", Rule{Min: &ruleMin, Max: &ruleMax})
+	require.NoError(t, v.AddRule("article", "rating", Rule{Min: &ruleMin, Max: &ruleMax}))
 
 	s := v.Schema("article")
 	byName := fieldMap(s.Fields)
@@ -573,7 +573,7 @@ func TestValidateDocument_EndToEnd(t *testing.T) {
 	v.Require("article", "name")
 	ruleMin := 0
 	ruleMax := 5
-	v.AddRule("article", "rating", Rule{Min: &ruleMin, Max: &ruleMax})
+	require.NoError(t, v.AddRule("article", "rating", Rule{Min: &ruleMin, Max: &ruleMax}))
 
 	// Valid document
 	validDoc := `{"_id": "1", "_type": "article", "name": "Test", "rating": 3, "status": "draft"}`
@@ -738,6 +738,45 @@ func TestNewValidator_RealSchemaExtract(t *testing.T) {
 	assert.NotNil(t, resolver("categoryRating"))
 	assert.NotNil(t, resolver("faqItem"))
 	assert.NotNil(t, resolver("seoFields"))
+}
+
+func TestAddRule_UnknownType(t *testing.T) {
+	t.Parallel()
+	v, err := NewValidator([]byte(`[{"name":"article","type":"document","attributes":{"name":{"type":"objectAttribute","value":{"type":"string"}}}}]`))
+	require.NoError(t, err)
+
+	err = v.AddRule("nonexistent", "name", Rule{Email: true})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestAddRule_UnknownField(t *testing.T) {
+	t.Parallel()
+	v, err := NewValidator([]byte(`[{"name":"article","type":"document","attributes":{"name":{"type":"objectAttribute","value":{"type":"string"}}}}]`))
+	require.NoError(t, err)
+
+	err = v.AddRule("article", "nonexistent", Rule{Email: true})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func TestAddRule_InvalidRegex(t *testing.T) {
+	t.Parallel()
+	v, err := NewValidator([]byte(`[{"name":"article","type":"document","attributes":{"name":{"type":"objectAttribute","value":{"type":"string"}}}}]`))
+	require.NoError(t, err)
+
+	err = v.AddRule("article", "name", Rule{Regex: "[invalid"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "compile regex")
+}
+
+func TestRequire_UnknownType(t *testing.T) {
+	t.Parallel()
+	v, err := NewValidator([]byte(`[{"name":"article","type":"document","attributes":{"name":{"type":"objectAttribute","value":{"type":"string"}}}}]`))
+	require.NoError(t, err)
+
+	assert.False(t, v.Require("nonexistent", "name"))
+	assert.True(t, v.Require("article", "name"))
 }
 
 // fieldMap creates a map from field name to field for easy test lookups.

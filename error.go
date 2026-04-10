@@ -77,7 +77,6 @@ type Document struct {
 	Description string
 	Fields      map[string]any
 	Sections    []Section
-	SectionsKey string
 }
 
 // Section is a content section within a document.
@@ -134,7 +133,7 @@ type Rule struct {
 	AssetRequired bool           // image/file must have asset ref
 	Custom        []CustomRule   // user-defined validators
 	Level         Severity       // LevelError (default), LevelWarning, LevelInfo
-	CompiledRegex *regexp.Regexp // pre-compiled Regex pattern (set automatically)
+	compiledRegex *regexp.Regexp // pre-compiled Regex pattern (set automatically)
 }
 
 // CustomRule is a user-defined validation function.
@@ -165,8 +164,13 @@ type Error struct {
 
 func (e Error) Error() string {
 	s := fmt.Sprintf("%s: %s", e.Path, e.Message)
-	if e.Got != "" || e.Want != "" {
+	switch {
+	case e.Got != "" && e.Want != "":
 		s += fmt.Sprintf(". got=%s, want=%s", e.Got, e.Want)
+	case e.Got != "":
+		s += ". got=" + e.Got
+	case e.Want != "":
+		s += ". want=" + e.Want
 	}
 	return s
 }

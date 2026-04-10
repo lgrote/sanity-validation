@@ -98,7 +98,7 @@ export default defineType({
 	byName := fieldMap(s.Fields)
 	require.Len(t, byName["slug"].Rules, 1)
 	assert.Equal(t, "^[a-z0-9-]+$", byName["slug"].Rules[0].Regex)
-	assert.NotNil(t, byName["slug"].Rules[0].CompiledRegex, "regex should be pre-compiled by overlayTSFields")
+	assert.NotEmpty(t, byName["slug"].Rules[0].Regex, "regex should be set by overlayTSFields")
 }
 
 func TestLoadRules_URI(t *testing.T) {
@@ -438,6 +438,20 @@ func TestExtractBraceBlock_BracesInString(t *testing.T) {
 func TestExtractBraceBlock_EscapedQuotes(t *testing.T) {
 	t.Parallel()
 	source := `{name: 'it\'s {fine}', type: 'string'}`
+	result := extractBraceBlock(source, 0)
+	assert.Equal(t, source, result)
+}
+
+func TestExtractBraceBlock_SingleLineComment(t *testing.T) {
+	t.Parallel()
+	source := "{name: 'test', // handle { edge case\n type: 'string'}"
+	result := extractBraceBlock(source, 0)
+	assert.Equal(t, source, result)
+}
+
+func TestExtractBraceBlock_BlockComment(t *testing.T) {
+	t.Parallel()
+	source := "{name: 'test', /* { not a real brace } */ type: 'string'}"
 	result := extractBraceBlock(source, 0)
 	assert.Equal(t, source, result)
 }

@@ -105,12 +105,12 @@ func TestValidate_RequiredTitle(t *testing.T) {
 
 	var titleErr *Error
 	for i := range errs {
-		if errs[i].Path == "title" {
+		if errs[i].Path == "fields.title" {
 			titleErr = &errs[i]
 			break
 		}
 	}
-	require.NotNil(t, titleErr, "expected error at path 'title'")
+	require.NotNil(t, titleErr, "expected error at path 'fields.title'")
 	assert.Equal(t, ErrMissingRequired, titleErr.Type)
 }
 
@@ -127,12 +127,12 @@ func TestValidate_RequiredLanguage(t *testing.T) {
 
 	var langErr *Error
 	for i := range errs {
-		if errs[i].Path == "language" {
+		if errs[i].Path == "fields.language" {
 			langErr = &errs[i]
 			break
 		}
 	}
-	require.NotNil(t, langErr, "expected error at path 'language'")
+	require.NotNil(t, langErr, "expected error at path 'fields.language'")
 	assert.Equal(t, ErrMissingRequired, langErr.Type)
 }
 
@@ -149,12 +149,12 @@ func TestValidate_RequiredDescription(t *testing.T) {
 
 	var descErr *Error
 	for i := range errs {
-		if errs[i].Path == "description" {
+		if errs[i].Path == "fields.description" {
 			descErr = &errs[i]
 			break
 		}
 	}
-	require.NotNil(t, descErr, "expected error at path 'description'")
+	require.NotNil(t, descErr, "expected error at path 'fields.description'")
 	assert.Equal(t, ErrMissingRequired, descErr.Type)
 }
 
@@ -314,9 +314,33 @@ func TestValidate_TitleNotDoubleValidated(t *testing.T) {
 	errs := Validate(doc, schema, nil)
 	titleErrs := 0
 	for _, e := range errs {
-		if e.Path == "title" {
+		if e.Path == "fields.title" {
 			titleErrs++
 		}
 	}
 	assert.Equal(t, 1, titleErrs, "title should produce exactly one error")
+}
+
+func TestValidate_TitleRulesEvaluated(t *testing.T) {
+	t.Parallel()
+	// Rules on title fields should now be evaluated (not bypassed).
+	minLen := 10
+	doc := &Document{Type: "page", Title: "Hi", Fields: map[string]any{}}
+	schema := &Schema{
+		Name: "page",
+		Fields: []Field{{
+			Name: "title", Type: TypeString,
+			Rules: []Rule{{Min: &minLen}},
+		}},
+	}
+	errs := Validate(doc, schema, nil)
+	var ruleErr *Error
+	for i := range errs {
+		if errs[i].Type == ErrRuleMin {
+			ruleErr = &errs[i]
+			break
+		}
+	}
+	require.NotNil(t, ruleErr, "expected min rule error on title")
+	assert.Equal(t, "fields.title", ruleErr.Path)
 }

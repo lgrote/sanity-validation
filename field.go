@@ -9,7 +9,10 @@ import (
 	"strings"
 )
 
-var dateRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+var (
+	dateRegex     = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+	datetimeRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}`)
+)
 
 // validateField checks a single field value against its schema definition.
 // parent is the containing object (for rule context). doc is the root document.
@@ -31,7 +34,8 @@ func validateField(val any, f Field, path string, types TypeResolver, parent map
 		return
 	}
 
-	// Type-specific structural checks.
+	// Type-specific structural checks (Layer 1).
+	errsBefore := len(*errs)
 	switch f.Type {
 	case TypeString, TypeText:
 		validateString(val, f, path, errs)
@@ -64,9 +68,11 @@ func validateField(val any, f Field, path string, types TypeResolver, parent map
 		validateCustomType(val, f, path, types, doc, errs)
 	}
 
-	// Rule-based checks (Layer 2).
-	for _, r := range f.Rules {
-		evaluateRule(val, r, f, path, types, parent, doc, errs)
+	// Rule-based checks (Layer 2) — only run if structural checks passed.
+	if len(*errs) == errsBefore {
+		for _, r := range f.Rules {
+			evaluateRule(val, r, f, path, parent, doc, errs)
+		}
 	}
 }
 
@@ -154,13 +160,25 @@ func validateDate(val any, path string, errs *[]Error) {
 }
 
 func validateDatetime(val any, path string, errs *[]Error) {
-	if _, ok := val.(string); !ok {
+	s, ok := val.(string)
+	if !ok {
 		*errs = append(*errs, Error{
 			Path:    path,
 			Message: "expected datetime string",
 			Type:    ErrWrongType,
 			Got:     fmt.Sprintf("%T", val),
 			Want:    "string (ISO 8601)",
+			Level:   LevelError,
+		})
+		return
+	}
+	if !datetimeRegex.MatchString(s) {
+		*errs = append(*errs, Error{
+			Path:    path,
+			Message: "invalid datetime format",
+			Type:    ErrInvalidFormat,
+			Got:     s,
+			Want:    "YYYY-MM-DDTHH:MM:SS",
 			Level:   LevelError,
 		})
 	}
@@ -353,7 +371,7 @@ func describeValue(val any) string {
 		return fmt.Sprintf("string %q", v)
 	case float64:
 		if v == math.Trunc(v) {
-			return fmt.Sprintf("number %g", v)
+			return fmt.Sprintf("number %d", int64(v))
 		}
 		return fmt.Sprintf("number %g", v)
 	case bool:
@@ -363,6 +381,7 @@ func describeValue(val any) string {
 		for k := range v {
 			keys = append(keys, k)
 		}
+		slices.Sort(keys)
 		return fmt.Sprintf("object {%s}", strings.Join(keys, ", "))
 	case []any:
 		return fmt.Sprintf("array (len=%d)", len(v))

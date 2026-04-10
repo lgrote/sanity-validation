@@ -28,36 +28,26 @@ func Validate(doc *Document, schema *Schema, types TypeResolver) []Error {
 		})
 	}
 
+	// Sync Document struct fields to Fields map so they go through the
+	// normal validation pipeline. This maintains backwards compat with
+	// callers who construct Documents directly and set struct fields.
+	if doc.Fields == nil {
+		doc.Fields = make(map[string]any)
+	}
+	for _, pair := range [...]struct{ key, val string }{
+		{"title", doc.Title},
+		{"language", doc.Language},
+		{"description", doc.Description},
+	} {
+		if pair.val != "" {
+			if _, exists := doc.Fields[pair.key]; !exists {
+				doc.Fields[pair.key] = pair.val
+			}
+		}
+	}
+
 	// Validate document-level fields against schema.
 	for _, f := range schema.Fields {
-		// Skip fields handled as top-level Document struct fields.
-		switch f.Name {
-		case "title":
-			if f.Required && doc.Title == "" {
-				errs = append(errs, Error{
-					Path: "title", Message: "required field title is empty",
-					Type: ErrMissingRequired, Got: "empty", Want: "non-empty string", Level: LevelError,
-				})
-			}
-			continue
-		case "language":
-			if f.Required && doc.Language == "" {
-				errs = append(errs, Error{
-					Path: "language", Message: "required field language is empty",
-					Type: ErrMissingRequired, Got: "empty", Want: "non-empty string", Level: LevelError,
-				})
-			}
-			continue
-		case "description":
-			if f.Required && doc.Description == "" {
-				errs = append(errs, Error{
-					Path: "description", Message: "required field description is empty",
-					Type: ErrMissingRequired, Got: "empty", Want: "non-empty string", Level: LevelError,
-				})
-			}
-			continue
-		}
-
 		val := doc.Fields[f.Name]
 		validateField(val, f, "fields."+f.Name, types, doc.Fields, doc, &errs)
 	}
