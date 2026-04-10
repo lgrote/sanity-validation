@@ -218,3 +218,15 @@ func TestArray_WrongType(t *testing.T) {
 	assert.NotEmpty(t, errs)
 	assert.Equal(t, ErrWrongType, errs[0].Type)
 }
+
+func TestDeepEqualExcludeKey_Deterministic(t *testing.T) {
+	t.Parallel()
+	// Two maps with identical content but different _key values must be equal.
+	a := map[string]any{"_key": "k1", "title": "hello", "count": 42.0}
+	b := map[string]any{"_key": "k2", "title": "hello", "count": 42.0}
+	assert.True(t, deepEqualExcludeKey(a, b))
+
+	// Different content must not be equal.
+	c := map[string]any{"_key": "k3", "title": "world", "count": 42.0}
+	assert.False(t, deepEqualExcludeKey(a, c))
+}

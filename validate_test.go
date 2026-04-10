@@ -303,3 +303,20 @@ func TestFormatErrors_MultipleErrors(t *testing.T) {
 	assert.Contains(t, lines[2], "expected slug object")
 	assert.Contains(t, lines[2], "got=string")
 }
+
+func TestValidate_TitleNotDoubleValidated(t *testing.T) {
+	t.Parallel()
+	// A required "title" field should produce exactly one error, not two.
+	doc := &Document{Type: "test", Title: "", Fields: map[string]any{}}
+	schema := &Schema{Name: "test", Fields: []Field{
+		{Name: "title", Type: TypeString, Required: true},
+	}}
+	errs := Validate(doc, schema, nil)
+	titleErrs := 0
+	for _, e := range errs {
+		if e.Path == "title" {
+			titleErrs++
+		}
+	}
+	assert.Equal(t, 1, titleErrs, "title should produce exactly one error")
+}

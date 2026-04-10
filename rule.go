@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 // evaluateRule evaluates a single Rule against a field value.
@@ -20,22 +21,23 @@ func evaluateRule(val any, r Rule, f Field, path string, _ TypeResolver, parent 
 	switch f.Type { //nolint:exhaustive // only string, text, number, array have min/max semantics
 	case TypeString, TypeText:
 		s, _ := val.(string)
-		if r.Min != nil && len(s) < *r.Min {
+		n := utf8.RuneCountInString(s)
+		if r.Min != nil && n < *r.Min {
 			*errs = append(*errs, Error{
-				Path: path, Message: fmt.Sprintf("string length %d is below minimum %d", len(s), *r.Min),
-				Type: ErrRuleMin, Got: fmt.Sprintf("length %d", len(s)), Want: fmt.Sprintf(">= %d chars", *r.Min), Level: level,
+				Path: path, Message: fmt.Sprintf("string length %d is below minimum %d", n, *r.Min),
+				Type: ErrRuleMin, Got: fmt.Sprintf("length %d", n), Want: fmt.Sprintf(">= %d chars", *r.Min), Level: level,
 			})
 		}
-		if r.Max != nil && len(s) > *r.Max {
+		if r.Max != nil && n > *r.Max {
 			*errs = append(*errs, Error{
-				Path: path, Message: fmt.Sprintf("string length %d exceeds maximum %d", len(s), *r.Max),
-				Type: ErrRuleMax, Got: fmt.Sprintf("length %d", len(s)), Want: fmt.Sprintf("<= %d chars", *r.Max), Level: level,
+				Path: path, Message: fmt.Sprintf("string length %d exceeds maximum %d", n, *r.Max),
+				Type: ErrRuleMax, Got: fmt.Sprintf("length %d", n), Want: fmt.Sprintf("<= %d chars", *r.Max), Level: level,
 			})
 		}
-		if r.Length != nil && len(s) != *r.Length {
+		if r.Length != nil && n != *r.Length {
 			*errs = append(*errs, Error{
-				Path: path, Message: fmt.Sprintf("string length %d, expected exactly %d", len(s), *r.Length),
-				Type: ErrRuleLength, Got: fmt.Sprintf("length %d", len(s)), Want: fmt.Sprintf("exactly %d chars", *r.Length), Level: level,
+				Path: path, Message: fmt.Sprintf("string length %d, expected exactly %d", n, *r.Length),
+				Type: ErrRuleLength, Got: fmt.Sprintf("length %d", n), Want: fmt.Sprintf("exactly %d chars", *r.Length), Level: level,
 			})
 		}
 	case TypeNumber:
@@ -79,8 +81,15 @@ func evaluateRule(val any, r Rule, f Field, path string, _ TypeResolver, parent 
 	// Regex.
 	if r.Regex != "" {
 		s, _ := val.(string)
-		matched, err := regexp.MatchString(r.Regex, s)
-		if err == nil && !matched {
+		re := r.CompiledRegex
+		if re == nil {
+			var err error
+			re, err = regexp.Compile(r.Regex)
+			if err != nil {
+				re = nil
+			}
+		}
+		if re != nil && !re.MatchString(s) {
 			*errs = append(*errs, Error{
 				Path: path, Message: "value does not match pattern " + r.Regex,
 				Type: ErrRuleRegex, Got: describeValue(val), Want: "match " + r.Regex, Level: level,

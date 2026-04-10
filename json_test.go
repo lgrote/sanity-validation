@@ -475,9 +475,10 @@ func TestParseDocument(t *testing.T) {
 	assert.InDelta(t, 4.2, doc.Fields["rating"], 0.001)
 	assert.Len(t, doc.Fields["tags"], 2)
 
-	// title/language/description also in Fields
-	assert.Equal(t, "Hertz Review", doc.Fields["title"])
-	assert.Equal(t, "en", doc.Fields["language"])
+	// title/language/description are on the struct, not in Fields
+	assert.Nil(t, doc.Fields["title"])
+	assert.Nil(t, doc.Fields["language"])
+	assert.Nil(t, doc.Fields["description"])
 }
 
 func TestParseDocument_InvalidJSON(t *testing.T) {

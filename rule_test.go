@@ -6,6 +6,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// --- String length counts runes, not bytes ---
+
+func TestRule_Min_String_Unicode(t *testing.T) {
+	t.Parallel()
+	// "日本語" is 3 runes (9 bytes) — min(3) should pass.
+	errs := validateOneField("日本語", Field{Name: "s", Type: TypeString, Rules: []Rule{{Min: new(3)}}})
+	assert.Empty(t, errs)
+}
+
+func TestRule_Max_String_Unicode(t *testing.T) {
+	t.Parallel()
+	// "日本語!" is 4 runes — max(3) should fail.
+	errs := validateOneField("日本語!", Field{Name: "s", Type: TypeString, Rules: []Rule{{Max: new(3)}}})
+	assert.NotEmpty(t, errs)
+	assert.Equal(t, ErrRuleMax, errs[0].Type)
+	assert.Contains(t, errs[0].Message, "length 4")
+}
+
 // --- String min/max ---
 
 func TestRule_Min_String_TooShort(t *testing.T) {

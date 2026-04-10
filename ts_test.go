@@ -79,6 +79,28 @@ export default defineType({
 	assert.Equal(t, 5, *byName["rating"].Rules[0].Max)
 }
 
+func TestLoadRules_RegexPreCompiled(t *testing.T) {
+	t.Parallel()
+
+	v := newTestValidator("article", "slug")
+	require.NoError(t, v.LoadRules([]byte(`
+import { defineField, defineType } from 'sanity'
+export default defineType({
+  name: 'article',
+  type: 'document',
+  fields: [
+    defineField({ name: 'slug', type: 'string', validation: (Rule) => Rule.regex(/^[a-z0-9-]+$/) }),
+  ],
+})
+`)))
+
+	s := v.Schema("article")
+	byName := fieldMap(s.Fields)
+	require.Len(t, byName["slug"].Rules, 1)
+	assert.Equal(t, "^[a-z0-9-]+$", byName["slug"].Rules[0].Regex)
+	assert.NotNil(t, byName["slug"].Rules[0].CompiledRegex, "regex should be pre-compiled by overlayTSFields")
+}
+
 func TestLoadRules_URI(t *testing.T) {
 	t.Parallel()
 
@@ -403,4 +425,19 @@ func TestLoadRules_RealSchemas(t *testing.T) {
 	assert.True(t, faqByName["title"].Required)
 	require.NotEmpty(t, faqByName["questions"].Rules)
 	assert.Equal(t, 1, *faqByName["questions"].Rules[0].Min)
+}
+
+func TestExtractBraceBlock_BracesInString(t *testing.T) {
+	t.Parallel()
+	// Braces inside string literals should not break brace balancing.
+	source := `{name: 'use {curly} braces', type: 'string'}`
+	result := extractBraceBlock(source, 0)
+	assert.Equal(t, source, result)
+}
+
+func TestExtractBraceBlock_EscapedQuotes(t *testing.T) {
+	t.Parallel()
+	source := `{name: 'it\'s {fine}', type: 'string'}`
+	result := extractBraceBlock(source, 0)
+	assert.Equal(t, source, result)
 }

@@ -1,9 +1,8 @@
 package validate
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
+	"reflect"
 )
 
 // validateArray checks an array value against its schema definition.
@@ -185,23 +184,26 @@ func deepEqualExcludeKey(a, b any) bool {
 	bm, bIsMap := b.(map[string]any)
 	if aIsMap && bIsMap {
 		// Compare maps excluding _key.
-		aFiltered := make(map[string]any, len(am))
-		for k, v := range am {
-			if k != "_key" {
-				aFiltered[k] = v
+		if len(am)-countKey(am) != len(bm)-countKey(bm) {
+			return false
+		}
+		for k, av := range am {
+			if k == "_key" {
+				continue
+			}
+			bv, ok := bm[k]
+			if !ok || !reflect.DeepEqual(av, bv) {
+				return false
 			}
 		}
-		bFiltered := make(map[string]any, len(bm))
-		for k, v := range bm {
-			if k != "_key" {
-				bFiltered[k] = v
-			}
-		}
-		aj, _ := json.Marshal(aFiltered) //nolint:errchkjson // best-effort comparison
-		bj, _ := json.Marshal(bFiltered) //nolint:errchkjson // best-effort comparison
-		return bytes.Equal(aj, bj)
+		return true
 	}
-	aj, _ := json.Marshal(a) //nolint:errchkjson // best-effort comparison
-	bj, _ := json.Marshal(b) //nolint:errchkjson // best-effort comparison
-	return bytes.Equal(aj, bj)
+	return reflect.DeepEqual(a, b)
+}
+
+func countKey(m map[string]any) int {
+	if _, ok := m["_key"]; ok {
+		return 1
+	}
+	return 0
 }

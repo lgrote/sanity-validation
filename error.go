@@ -2,6 +2,7 @@ package validate
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -118,21 +119,22 @@ type TypeResolver func(name string) *Schema
 // Rule is a validation rule attached to a field.
 // Rules are evaluated after structural checks pass.
 type Rule struct {
-	Min           *int         // min length (string/array) or value (number)
-	Max           *int         // max length (string/array) or value (number)
-	Length        *int         // exact length
-	Regex         string       // regex pattern
-	Email         bool         // must be valid email
-	URI           bool         // must be valid URI
-	Integer       bool         // must be whole number
-	Positive      bool         // must be > 0
-	Negative      bool         // must be < 0
-	Uppercase     bool         // must be all uppercase
-	Lowercase     bool         // must be all lowercase
-	Unique        bool         // array items must be unique (excl _key)
-	AssetRequired bool         // image/file must have asset ref
-	Custom        []CustomRule // user-defined validators
-	Level         Severity     // LevelError (default), LevelWarning, LevelInfo
+	Min           *int           // min length (string/array) or value (number)
+	Max           *int           // max length (string/array) or value (number)
+	Length        *int           // exact length
+	Regex         string         // regex pattern
+	Email         bool           // must be valid email
+	URI           bool           // must be valid URI
+	Integer       bool           // must be whole number
+	Positive      bool           // must be > 0
+	Negative      bool           // must be < 0
+	Uppercase     bool           // must be all uppercase
+	Lowercase     bool           // must be all lowercase
+	Unique        bool           // array items must be unique (excl _key)
+	AssetRequired bool           // image/file must have asset ref
+	Custom        []CustomRule   // user-defined validators
+	Level         Severity       // LevelError (default), LevelWarning, LevelInfo
+	CompiledRegex *regexp.Regexp // pre-compiled Regex pattern (set automatically)
 }
 
 // CustomRule is a user-defined validation function.

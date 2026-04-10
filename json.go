@@ -3,6 +3,7 @@ package validate
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 )
@@ -88,6 +89,9 @@ func (v *Validator) AddRule(typeName, fieldName string, r Rule) {
 	if schema == nil {
 		return
 	}
+	if r.Regex != "" && r.CompiledRegex == nil {
+		r.CompiledRegex, _ = regexp.Compile(r.Regex)
+	}
 	for i := range schema.Fields {
 		if schema.Fields[i].Name == fieldName {
 			schema.Fields[i].Rules = append(schema.Fields[i].Rules, r)
@@ -114,6 +118,11 @@ func ParseDocument(data []byte) (*Document, error) {
 
 	for k, v := range raw {
 		if strings.HasPrefix(k, "_") {
+			continue
+		}
+		// Skip fields already extracted into Document struct fields.
+		switch k {
+		case "title", "language", "description":
 			continue
 		}
 		doc.Fields[k] = v

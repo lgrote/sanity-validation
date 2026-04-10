@@ -80,13 +80,28 @@ func extractFieldBlocks(source string) []string {
 
 // extractBraceBlock returns the content between balanced {} starting at pos
 // (which should point to the opening '{').
+// Skips braces inside string literals (single-quoted, double-quoted, backtick).
 func extractBraceBlock(source string, pos int) string {
 	if pos >= len(source) || source[pos] != '{' {
 		return ""
 	}
 	depth := 0
 	for i := pos; i < len(source); i++ {
-		switch source[i] {
+		ch := source[i]
+
+		// Skip string literals.
+		if ch == '\'' || ch == '"' || ch == '`' {
+			i++
+			for i < len(source) && source[i] != ch {
+				if source[i] == '\\' {
+					i++ // skip escaped character
+				}
+				i++
+			}
+			continue
+		}
+
+		switch ch {
 		case '{':
 			depth++
 		case '}':
@@ -197,6 +212,9 @@ func (v *Validator) overlayTSFields(typeName string, fields []tsField) {
 			}
 
 			if !isEmptyRule(tf.Rule) {
+				if tf.Rule.Regex != "" && tf.Rule.CompiledRegex == nil {
+					tf.Rule.CompiledRegex, _ = regexp.Compile(tf.Rule.Regex)
+				}
 				schema.Fields[i].Rules = append(schema.Fields[i].Rules, tf.Rule)
 			}
 
