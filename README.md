@@ -4,7 +4,7 @@
 [![Go Reference](https://pkg.go.dev/badge/github.com/lgrote/sanity-validation.svg)](https://pkg.go.dev/github.com/lgrote/sanity-validation)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Go library for validating [Sanity](https://www.sanity.io/) documents against a schema -- the same structural and rule-based checks that Sanity Studio enforces client-side via [`@sanity/validation`](https://github.com/sanity-io/sanity/tree/next/packages/%40sanity/validation), but running server-side in Go.
+A Go library for validating [Sanity](https://www.sanity.io/) documents against a schema -- the same structural and rule-based checks that Sanity Studio enforces client-side via [`@sanity/validation`](https://github.com/sanity-io/sanity/tree/next/packages/%40sanity/validation), but running server-side in Go. Validation rules are implemented on a best-effort basis and may not cover every rule or edge case that Sanity Studio supports.
 
 ## Motivation
 
