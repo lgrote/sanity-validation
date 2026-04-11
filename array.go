@@ -74,7 +74,15 @@ func validateArray(val any, f Field, path string, types TypeResolver, _ map[stri
 			}
 
 			// _type check for typed arrays.
-			if len(f.Of) > 0 && !expectsPrimitives {
+			//
+			// Anonymous inline array members (a single ArrayOf entry with
+			// inline Fields) must NOT carry _type — Sanity rejects any _type
+			// value on them because no such type is registered. Named-type
+			// arrays and polymorphic arrays still require _type: named
+			// arrays need it pinned to the registered type name, and
+			// polymorphic arrays need it as the discriminator picking which
+			// Of entry to validate against.
+			if len(f.Of) > 0 && !expectsPrimitives && !isAnonymousInlineArray(f) {
 				if _, hasType := obj["_type"]; !hasType {
 					*errs = append(*errs, Error{
 						Path: itemPath, Message: "missing _type on array item",
@@ -132,6 +140,15 @@ func validateArrayItemFields(obj map[string]any, f Field, path string, types Typ
 			}
 		}
 	}
+}
+
+// isAnonymousInlineArray returns true if the array schema is the
+// anonymous-inline shape: a single ArrayOf entry carrying inline Fields
+// rather than a named type. Sanity models fields like
+// overviewSection.items this way — no _type is registered for the item
+// shape, and Studio rejects any _type value on such members.
+func isAnonymousInlineArray(f Field) bool {
+	return len(f.Of) == 1 && len(f.Of[0].Fields) > 0
 }
 
 // arrayExpectsObjects returns true if the array schema defines object item types.

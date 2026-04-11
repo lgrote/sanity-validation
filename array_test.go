@@ -41,6 +41,60 @@ func TestArray_MissingType_TypedArray(t *testing.T) {
 	assert.True(t, hasType, "expected missing_type error")
 }
 
+// TestArray_AnonymousInline_DoesNotRequireType covers the regression
+// where overviewSection.items (and every similar anonymous-inline
+// array) was flagged as missing _type even though Sanity itself
+// rejects any _type value on these members. The schema shape is
+// Of: [{Type: "object", Fields: [...]}] — a single ArrayOf entry
+// with inline fields. Items carry _key only; no _type at all.
+func TestArray_AnonymousInline_DoesNotRequireType(t *testing.T) {
+	t.Parallel()
+	errs := validateOneField(
+		[]any{
+			map[string]any{"_key": "k1", "title": "X", "description": "Y"},
+			map[string]any{"_key": "k2", "title": "A", "description": "B"},
+		},
+		Field{
+			Name: "items", Type: TypeArray,
+			Of: []ArrayItem{
+				{
+					Type: "object",
+					Fields: []Field{
+						{Name: "title", Type: TypeString},
+						{Name: "description", Type: TypeString},
+					},
+				},
+			},
+		},
+	)
+	for _, e := range errs {
+		assert.NotEqual(t, ErrMissingType, e.Type,
+			"anonymous inline array items must not be flagged as missing _type")
+	}
+}
+
+// TestArray_NamedType_StillRequiresType guards against over-correcting
+// the anonymous-inline fix. Named-type single ArrayOf entries (no inline
+// Fields) still need _type pinned to the registered type name.
+func TestArray_NamedType_StillRequiresType(t *testing.T) {
+	t.Parallel()
+	errs := validateOneField(
+		[]any{map[string]any{"_key": "k1", "title": "X"}},
+		Field{
+			Name: "items", Type: TypeArray,
+			Of: []ArrayItem{{Type: "quickFact"}},
+		},
+	)
+	hasType := false
+	for _, e := range errs {
+		if e.Type == ErrMissingType {
+			hasType = true
+		}
+	}
+	assert.True(t, hasType,
+		"named-type array items must still be flagged when _type is missing")
+}
+
 func TestArray_DuplicateKeys(t *testing.T) {
 	t.Parallel()
 	errs := validateOneField(
