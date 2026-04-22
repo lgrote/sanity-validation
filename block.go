@@ -126,6 +126,14 @@ func validateSpan(val any, path string, errs *[]Error) {
 			Type: ErrMissingRequired, Got: describeValue(span["text"]), Want: "text string", Level: LevelError,
 		})
 	}
+
+	// marks is required by Sanity Studio even when empty (must be []).
+	if _, has := span["marks"]; !has {
+		*errs = append(*errs, Error{
+			Path: path, Message: "span missing marks array",
+			Type: ErrMissingRequired, Got: "span without marks", Want: "marks array (may be empty)", Level: LevelError,
+		})
+	}
 }
 
 // validateMarkDef checks a single mark definition.

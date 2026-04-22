@@ -12,7 +12,7 @@ func validBlock() map[string]any {
 		"_key":  "b1",
 		"style": "normal",
 		"children": []any{
-			map[string]any{"_type": "span", "_key": "s1", "text": "Hello"},
+			map[string]any{"_type": "span", "_key": "s1", "text": "Hello", "marks": []any{}},
 		},
 		"markDefs": []any{},
 	}
@@ -175,6 +175,23 @@ func TestBlock_Span_MissingText(t *testing.T) {
 		}
 	}
 	assert.True(t, hasRequired, "expected missing_required error for span text")
+}
+
+func TestBlock_Span_MissingMarks(t *testing.T) {
+	t.Parallel()
+	block := validBlock()
+	block["children"] = []any{
+		map[string]any{"_type": "span", "_key": "s1", "text": "Hello"},
+	}
+	errs := validateOneField([]any{block}, Field{Name: "body", Type: TypeBlock})
+	assert.NotEmpty(t, errs)
+	hasRequired := false
+	for _, e := range errs {
+		if e.Type == ErrMissingRequired && e.Path == "fields.body[0].children[0]" {
+			hasRequired = true
+		}
+	}
+	assert.True(t, hasRequired, "expected missing_required error for span marks")
 }
 
 func TestBlock_MarkDef_Valid(t *testing.T) {
