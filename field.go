@@ -100,6 +100,7 @@ func validateString(val any, f Field, path string, errs *[]Error) {
 				Got:     s,
 				Want:    fmt.Sprintf("one of %v", f.Options),
 				Level:   LevelError,
+				Options: slices.Clone(f.Options),
 			})
 		}
 	}

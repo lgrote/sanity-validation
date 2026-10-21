@@ -160,6 +160,10 @@ type Error struct {
 	Got     string    // what was found
 	Want    string    // what was expected
 	Level   Severity  // LevelError (default), LevelWarning, LevelInfo
+	// Options lists the allowed values of an ErrInvalidOption error, verbatim
+	// (Want renders them for humans, which is ambiguous for values containing
+	// spaces); nil for every other error type.
+	Options []string
 }
 
 func (e Error) Error() string {

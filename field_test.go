@@ -55,6 +55,26 @@ func TestField_String_Enum_Invalid(t *testing.T) {
 	errs := validateOneField("c", Field{Name: "color", Type: TypeString, Options: []string{"a", "b"}})
 	require.NotEmpty(t, errs)
 	assert.Equal(t, ErrInvalidOption, errs[0].Type)
+	assert.Equal(t, []string{"a", "b"}, errs[0].Options)
+}
+
+// Options carries the allowed values verbatim; Want's "one of [...]" can't
+// be split back when a value contains a space.
+func TestField_String_Enum_OptionsWithSpaces(t *testing.T) {
+	t.Parallel()
+	opts := []string{"New York", "Los Angeles"}
+	errs := validateOneField("Paris", Field{Name: "city", Type: TypeString, Options: opts})
+	require.Len(t, errs, 1)
+	assert.Equal(t, opts, errs[0].Options)
+	opts[0] = "mutated"
+	assert.Equal(t, "New York", errs[0].Options[0], "the error owns its copy")
+}
+
+func TestField_String_WrongType_NoOptions(t *testing.T) {
+	t.Parallel()
+	errs := validateOneField(3, Field{Name: "color", Type: TypeString, Options: []string{"a", "b"}})
+	require.Len(t, errs, 1)
+	assert.Nil(t, errs[0].Options)
 }
 
 // --- Number ---
